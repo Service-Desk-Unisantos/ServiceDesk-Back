@@ -315,10 +315,10 @@ def historico_chamados_cliente(request):
 
 @login_required
 def notificacoes_pendentes(request):
-    # Entrega notificacoes pendentes por HTTP para evitar WebSocket no browser.
-    consulta = Notificacao.objects.select_related("chamado", "usuario").filter(lida=False)
-    if not (request.user.is_staff or request.user.is_superuser):
-        consulta = consulta.filter(usuario=request.user)
+    # Entrega apenas as notificacoes do usuario logado para evitar consumir notificacoes de outros.
+    consulta = Notificacao.objects.select_related("chamado", "usuario").filter(
+        lida=False, usuario=request.user
+    )
 
     notificacoes = list(consulta.order_by("criada_em", "id")[:20])
     payload = [
