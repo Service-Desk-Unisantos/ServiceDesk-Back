@@ -71,6 +71,21 @@
                     </button>
                 </form>
 
+                {% if google_oauth_enabled %}
+                    <!-- Se o Google OAuth estiver configurado, mostramos uma opção visual separada. -->
+                    <div class="google-divider my-3">
+                        <span class="google-divider__line"></span>
+                        <span class="google-divider__text">ou continue com</span>
+                        <span class="google-divider__line"></span>
+                    </div>
+                    <a href="{{ google_login_url }}" class="google-login-btn w-100" aria-label="Continuar com Google">
+                        <span class="google-login-btn__icon" aria-hidden="true">
+                            <i class="bi bi-google"></i>
+                        </span>
+                        <span class="google-login-btn__text">Continuar com Google</span>
+                    </a>
+                {% endif %}
+
                 <p class="text-center mt-4 mb-0">
                     Ainda nao possui conta?
                     <a href="{% url 'cadastro_usuario' %}" class="fw-semibold text-decoration-none">Criar cadastro</a>

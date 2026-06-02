@@ -4,3 +4,4 @@ ServiceDesk/venv/
 __pycache__/
 *.py[cod]
 *.sqlite3
+.env

@@ -22,6 +22,80 @@
     max-width: 560px;
 }
 
+/* Botão social mais neutro para não competir com o botão principal do formulário. */
+.google-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    min-height: 48px;
+    border: 1px solid #d7dbe2;
+    border-radius: 999px;
+    background: #fff;
+    color: #3c4043 !important;
+    text-decoration: none !important;
+    font-weight: 600;
+    font-size: 0.98rem;
+    letter-spacing: 0.1px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease,
+        background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Pequeno destaque no hover para indicar ação sem exagero visual. */
+.google-login-btn:hover {
+    color: #202124 !important;
+    background: #f8f9fa;
+    border-color: #c7ccd6;
+    box-shadow: 0 4px 14px rgba(60, 64, 67, 0.12);
+    transform: translateY(-1px);
+}
+
+/* Mantém o botão limpo quando recebe foco/ativação por teclado ou clique. */
+.google-login-btn:focus,
+.google-login-btn:active {
+    color: #202124 !important;
+    text-decoration: none !important;
+}
+
+/* Ícone sem vermelho para ficar mais discreto e consistente com o layout. */
+.google-login-btn__icon {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #5f6368;
+    font-size: 1.18rem;
+    flex: 0 0 auto;
+}
+
+.google-login-btn__text {
+    line-height: 1;
+    text-decoration: none;
+}
+
+/* Linha divisória simples entre o login tradicional e o social. */
+.google-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Linha fina para dar equilíbrio visual no bloco social. */
+.google-divider__line {
+    flex: 1;
+    height: 1px;
+    background: #e3e7ee;
+}
+
+/* Texto centralizado do divisor sem roubar a atenção do botão. */
+.google-divider__text {
+    flex: 0 0 auto;
+    color: #6c757d;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
 /* Mantem input e botao de senha na mesma linha dentro do input-group. */
 .senha-toggle-group {
     flex-wrap: nowrap;

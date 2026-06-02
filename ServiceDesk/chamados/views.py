@@ -8,6 +8,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import (
@@ -95,7 +96,14 @@ def login_usuario(request):
         request,
         # Template organizado por pasta da rota de login.
         "chamados/login/index.html",
-        {"form": form, "next": request.GET.get("next", "")},
+        {
+            # A tela mostra o botão Google só quando as credenciais existem.
+            "form": form,
+            "next": request.GET.get("next", ""),
+            "google_oauth_enabled": settings.GOOGLE_OAUTH_ENABLED,
+            # O link é gerado na view para evitar dependência de tag do template.
+            "google_login_url": reverse("google_login"),
+        },
     )
 
 
