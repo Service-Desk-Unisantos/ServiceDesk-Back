@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from unittest import mock
 
 from .models import Chamado, Comentario, Notificacao
 
@@ -268,8 +269,12 @@ class ChamadosTests(TestCase):
 
         self.assertRedirects(response, reverse("lista_chamados"))
 
-    def test_staff_atualiza_status_prioridade_e_registra_resposta(self):
+    @mock.patch("chamados.views.socket.create_connection")
+    def test_staff_atualiza_status_prioridade_e_registra_resposta(self, mock_create_connection):
         # Equipe de infra pode atualizar atendimento e registrar resposta tecnica.
+        mock_socket = mock.MagicMock()
+        mock_create_connection.return_value.__enter__.return_value = mock_socket
+
         chamado = Chamado.objects.create(
             titulo="Erro no e-mail",
             descricao="Caixa postal indisponivel.",
@@ -301,6 +306,37 @@ class ChamadosTests(TestCase):
             ).exists()
         )
         self.assertTrue(
+            Notificacao.objects.filter(
+                chamado=chamado,
+                usuario=self.usuario,
+                tipo="status_chamado",
+            ).exists()
+        )
+
+    @mock.patch("chamados.views.socket.create_connection", side_effect=OSError("socket indisponivel"))
+    def test_staff_sem_socket_nao_salva_notificacao(self, _mock_create_connection):
+        # Se o servidor TCP nao estiver disponivel, a notificacao nao deve ser persistida.
+        chamado = Chamado.objects.create(
+            titulo="Sem notificacao",
+            descricao="Teste de falha do socket.",
+            categoria="software",
+            prioridade="media",
+            status="aberto",
+            usuario=self.usuario,
+        )
+
+        self.client.login(username="tecnico", password="SenhaForte123!")
+        response = self.client.post(
+            reverse("atualizar_chamado_admin", args=[chamado.id]),
+            {
+                "status": "concluido",
+                "prioridade": "alta",
+                "resposta": "Atualizacao feita, mas sem socket.",
+            },
+        )
+
+        self.assertRedirects(response, reverse("detalhe_chamado_admin", args=[chamado.id]))
+        self.assertFalse(
             Notificacao.objects.filter(
                 chamado=chamado,
                 usuario=self.usuario,

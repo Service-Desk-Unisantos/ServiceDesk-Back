@@ -50,14 +50,6 @@ def enviar_notificacao_status_chamado(chamado):
         "mensagem": mensagem,
     }
 
-    # Persiste a notificacao para o frontend recupera-la por polling HTTP.
-    Notificacao.objects.create(
-        usuario_id=chamado.usuario_id,
-        chamado=chamado,
-        tipo="status_chamado",
-        mensagem=mensagem,
-    )
-
     # Envia o evento para um servidor TCP via socket puro.
     try:
         with socket.create_connection(
@@ -73,6 +65,15 @@ def enviar_notificacao_status_chamado(chamado):
             "Falha ao enviar notificacao para o servidor TCP: %s",
             exc,
         )
+        return
+
+    # Persiste a notificacao somente quando o servidor TCP respondeu com sucesso.
+    Notificacao.objects.create(
+        usuario_id=chamado.usuario_id,
+        chamado=chamado,
+        tipo="status_chamado",
+        mensagem=mensagem,
+    )
 
 
 def login_usuario(request):
