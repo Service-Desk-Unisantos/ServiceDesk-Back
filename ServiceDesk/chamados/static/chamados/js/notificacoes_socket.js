@@ -12,6 +12,7 @@
         // Cria alerta Bootstrap simples para exibir mensagem em tempo real.
         const notificacao = document.createElement("div");
         notificacao.className = "alert alert-info shadow-sm mb-2";
+        notificacao.style.pointerEvents = "auto";
         notificacao.textContent = texto;
         caixaNotificacoes.prepend(notificacao);
 
