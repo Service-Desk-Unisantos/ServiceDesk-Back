@@ -17,8 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from chamados import views as chamados_views
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("accounts/google/login/", chamados_views.google_login_guard, name="google_login"),
     path("accounts/", include("allauth.urls")),
     path("", include("chamados.urls")),
 ]

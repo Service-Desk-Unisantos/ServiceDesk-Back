@@ -107,6 +107,19 @@ def login_usuario(request):
     )
 
 
+def google_login_guard(request):
+    if not settings.GOOGLE_OAUTH_ENABLED:
+        messages.error(
+            request,
+            "Login com Google ainda nao foi configurado neste ambiente.",
+        )
+        return redirect("login_usuario")
+
+    from allauth.socialaccount.providers.google.views import oauth2_login
+
+    return oauth2_login(request)
+
+
 def cadastro_usuario(request):
     # Se ja estiver logado, nao precisa cadastrar de novo.
     if request.user.is_authenticated:
@@ -118,7 +131,7 @@ def cadastro_usuario(request):
         if form.is_valid():
             usuario = form.save()
             # Login automatico apos cadastro para melhorar a experiencia.
-            login(request, usuario)
+            login(request, usuario, backend="chamados.backends.EmailOuUsuarioBackend")
             messages.success(request, "Cadastro realizado com sucesso.")
             return redirect("lista_chamados")
     else:

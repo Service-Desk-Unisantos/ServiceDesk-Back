@@ -141,9 +141,19 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
-GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "").strip()
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+GOOGLE_OAUTH_CLIENT_ID = os.getenv(
+    "GOOGLE_OAUTH_CLIENT_ID",
+    "1053202065034-3h5p2gtlajn3o0k1i8ir66tbo8i7fs3k.apps.googleusercontent.com",
+).strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv(
+    "GOOGLE_OAUTH_CLIENT_SECRET",
+    "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",
+).strip()
 GOOGLE_OAUTH_ENABLED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
+FRONTEND_GOOGLE_CALLBACK_URL = os.getenv(
+    "FRONTEND_GOOGLE_CALLBACK_URL",
+    "http://localhost:5500/pages/auth/google-callback/index.html",
+).strip()
 
 # Configuração do provider do Google:
 # - escopo de perfil e e-mail
@@ -175,8 +185,8 @@ if GOOGLE_OAUTH_ENABLED:
 # URL de autenticacao usada pelo decorator @login_required (RF02).
 LOGIN_URL = "/login/"
 
-# Apos autenticar, o usuario vai para o painel principal.
-LOGIN_REDIRECT_URL = "/"
+# Apos autenticar via Google, o backend entrega JWTs para o frontend estatico.
+LOGIN_REDIRECT_URL = "/api/v1/auth/google/success/"
 
 # Apos logout, retorna para a tela de login.
 LOGOUT_REDIRECT_URL = "/login/"

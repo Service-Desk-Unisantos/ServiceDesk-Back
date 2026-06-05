@@ -1,7 +1,16 @@
 venv/
 .venv/
 ServiceDesk/venv/
+
+# Python caches
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local database and env files
 *.sqlite3
 .env

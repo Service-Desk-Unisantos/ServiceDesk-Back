@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from urllib.parse import parse_qs, urlparse
 from unittest import mock
 
 from .models import Chamado, Comentario, Notificacao
@@ -63,6 +64,41 @@ class FluxoAutenticacaoTests(TestCase):
         self.assertIn(reverse("login_usuario"), response_novo.url)
         self.assertEqual(response_historico.status_code, 302)
         self.assertIn(reverse("login_usuario"), response_historico.url)
+
+    @override_settings(GOOGLE_OAUTH_ENABLED=False)
+    def test_login_google_sem_configuracao_redireciona_para_login(self):
+        response = self.client.get("/accounts/google/login/", follow=True)
+
+        self.assertRedirects(response, reverse("login_usuario"))
+        self.assertContains(
+            response,
+            "Login com Google ainda nao foi configurado neste ambiente.",
+        )
+
+    @override_settings(
+        FRONTEND_GOOGLE_CALLBACK_URL="http://localhost:5500/pages/auth/google-callback/index.html"
+    )
+    def test_sucesso_google_entrega_tokens_para_frontend(self):
+        User.objects.create_user(
+            username="google_user",
+            email="google@example.com",
+            password="SenhaForte123!",
+        )
+        self.client.login(username="google_user", password="SenhaForte123!")
+
+        response = self.client.get(reverse("api_google_success"))
+        destino = response["Location"]
+        url = urlparse(destino)
+        fragmento = parse_qs(url.fragment)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            f"{url.scheme}://{url.netloc}{url.path}",
+            "http://localhost:5500/pages/auth/google-callback/index.html",
+        )
+        self.assertIn("access", fragmento)
+        self.assertIn("refresh", fragmento)
+        self.assertIn("user", fragmento)
 
 
 class ChamadosTests(TestCase):
