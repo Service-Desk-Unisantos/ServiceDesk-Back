@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
-from chamados.models import Chamado, Comentario, Notificacao
+from chamados.models import Chamado, Comentario, HistoricoChamado, Notificacao, registrar_edicoes
 from chamados.views import enviar_notificacao_status_chamado
 
 from .permissions import IsChamadoOwnerOrStaff, IsStaff
@@ -16,6 +16,7 @@ from .serializers import (
     CadastroSerializer,
     ChamadoSerializer,
     ComentarioSerializer,
+    HistoricoChamadoSerializer,
     NotificacaoSerializer,
     UsuarioSerializer,
 )
@@ -88,10 +89,12 @@ class ChamadoViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         chamado = self.get_object()
         status_anterior = chamado.status
+        antes = {"status": chamado.status, "prioridade": chamado.prioridade}
 
         serializer = self.get_serializer(chamado, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         chamado_atualizado = serializer.save()
+        registrar_edicoes(chamado_atualizado, request.user, antes)
 
         if chamado_atualizado.status != status_anterior:
             enviar_notificacao_status_chamado(chamado_atualizado)
@@ -120,6 +123,23 @@ class ComentarioViewSet(viewsets.ModelViewSet):
         chamado    = Chamado.objects.get(pk=chamado_pk)
         self.check_object_permissions(self.request, chamado)
         serializer.save(chamado=chamado, usuario=self.request.user)
+
+
+# ── Histórico ─────────────────────────────────────────────────────────────────
+
+class HistoricoViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class   = HistoricoChamadoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Cliente so enxerga o historico dos proprios chamados.
+        user = self.request.user
+        chamados = Chamado.objects.all()
+        if not (user.is_staff or user.is_superuser):
+            chamados = chamados.filter(usuario=user)
+        return HistoricoChamado.objects.filter(
+            chamado_id=self.kwargs.get("chamado_pk"), chamado__in=chamados
+        ).select_related("autor")
 
 
 # ── Notificações ──────────────────────────────────────────────────────────────

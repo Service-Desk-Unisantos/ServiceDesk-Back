@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Chamado, Comentario, Notificacao
+from .models import Chamado, Comentario, HistoricoChamado, Notificacao
 
 
 @admin.register(Chamado)
@@ -26,3 +26,10 @@ class NotificacaoAdmin(admin.ModelAdmin):
     list_display = ("id", "tipo", "usuario", "chamado", "lida", "criada_em")
     list_filter = ("tipo", "lida", "criada_em")
     search_fields = ("mensagem", "usuario__username", "chamado__titulo")
+
+
+@admin.register(HistoricoChamado)
+class HistoricoChamadoAdmin(admin.ModelAdmin):
+    list_display = ("id", "chamado", "autor", "acao", "atributo", "data")
+    list_filter = ("acao", "atributo", "data")
+    search_fields = ("chamado__titulo", "autor__username", "valor_novo")

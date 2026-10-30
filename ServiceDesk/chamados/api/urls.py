@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
-from .views import CadastroView, ChamadoViewSet, ComentarioViewSet, LoginView, NotificacaoViewSet
+from .views import CadastroView, ChamadoViewSet, ComentarioViewSet, HistoricoViewSet, LoginView, NotificacaoViewSet
 
 router = routers.DefaultRouter()
 router.register("chamados",     ChamadoViewSet,     basename="chamado")
@@ -10,6 +10,7 @@ router.register("notificacoes", NotificacaoViewSet, basename="notificacao")
 
 chamados_router = routers.NestedDefaultRouter(router, "chamados", lookup="chamado")
 chamados_router.register("comentarios", ComentarioViewSet, basename="chamado-comentarios")
+chamados_router.register("historico",   HistoricoViewSet,  basename="chamado-historico")
 
 urlpatterns = [
     path("auth/login/",    LoginView.as_view(),        name="api_login"),
