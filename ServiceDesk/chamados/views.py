@@ -18,7 +18,7 @@ from .forms import (
     LoginUsuarioForm,
     MensagemChamadoForm,
 )
-from .models import Chamado, Comentario, Notificacao
+from .models import Chamado, Comentario, Notificacao, registrar_edicoes
 
 
 # Logger simples para registrar falhas nao bloqueantes de notificacao.
@@ -231,11 +231,13 @@ def atualizar_chamado_admin(request, chamado_id):
 
     # Guarda status anterior para notificar somente quando houver mudanca real.
     status_anterior = chamado.status
+    antes = {"status": chamado.status, "prioridade": chamado.prioridade}
 
     # Salva as alteracoes operacionais feitas pela equipe de infra.
     chamado.status = form.cleaned_data["status"]
     chamado.prioridade = form.cleaned_data["prioridade"]
     chamado.save(update_fields=["status", "prioridade"])
+    registrar_edicoes(chamado, request.user, antes)
 
     # Registra resposta textual no historico quando preenchida.
     resposta = form.cleaned_data["resposta"].strip()

@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils.text import slugify
 from rest_framework import serializers
 
-from chamados.models import Categoria, Chamado, Comentario, Notificacao
+from chamados.models import Categoria, Chamado, Comentario, HistoricoChamado, Notificacao
 
 User = get_user_model()
 
@@ -113,3 +113,19 @@ class NotificacaoSerializer(serializers.ModelSerializer):
         model  = Notificacao
         fields = ["id", "mensagem", "tipo", "chamado", "lida", "criada_em"]
         read_only_fields = fields
+
+
+class HistoricoChamadoSerializer(serializers.ModelSerializer):
+    autor_username = serializers.SerializerMethodField()
+    acao_display   = serializers.CharField(source="get_acao_display", read_only=True)
+
+    class Meta:
+        model  = HistoricoChamado
+        fields = [
+            "id", "autor", "autor_username", "acao", "acao_display",
+            "atributo", "valor_anterior", "valor_novo", "data",
+        ]
+        read_only_fields = fields
+
+    def get_autor_username(self, obj):
+        return obj.autor.username if obj.autor else ""
