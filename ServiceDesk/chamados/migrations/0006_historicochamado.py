@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('chamados', '0004_notificacao'),
+        ('chamados', '0005_categoria'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

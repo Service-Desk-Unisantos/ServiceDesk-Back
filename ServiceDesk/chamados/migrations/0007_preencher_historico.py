@@ -29,7 +29,7 @@ def preencher(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("chamados", "0005_historicochamado"),
+        ("chamados", "0006_historicochamado"),
     ]
 
     operations = [
