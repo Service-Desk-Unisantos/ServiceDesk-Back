@@ -1,8 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils.text import slugify
 from rest_framework import serializers
 
-from chamados.models import Chamado, Comentario, HistoricoChamado, Notificacao
+from chamados.models import Categoria, Chamado, Comentario, HistoricoChamado, Notificacao
 
 User = get_user_model()
 
@@ -48,17 +49,47 @@ class CadastroSerializer(serializers.Serializer):
         )
 
 
+class CategoriaSerializer(serializers.ModelSerializer):
+    # default explícito: em requisições de formulário o DRF trataria a ausência como False.
+    ativa          = serializers.BooleanField(default=True)
+    total_chamados = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model  = Categoria
+        fields = ["id", "nome", "slug", "ativa", "total_chamados"]
+        read_only_fields = ["id", "slug", "total_chamados"]
+
+    def validate_nome(self, value):
+        nome = value.strip()
+        slug = slugify(nome)
+        if not slug:
+            raise serializers.ValidationError("Informe um nome com letras ou números.")
+
+        outras = Categoria.objects.exclude(pk=self.instance.pk) if self.instance else Categoria.objects.all()
+        if outras.filter(nome__iexact=nome).exists():
+            raise serializers.ValidationError("Já existe uma categoria com este nome.")
+        # O slug só é gerado na criação; ao renomear ele permanece o mesmo.
+        if self.instance is None and outras.filter(slug=slug).exists():
+            raise serializers.ValidationError("Já existe uma categoria com nome equivalente.")
+        return nome
+
+
 class ChamadoSerializer(serializers.ModelSerializer):
     usuario          = serializers.PrimaryKeyRelatedField(read_only=True)
     usuario_username = serializers.SerializerMethodField()
+    # Recebe e devolve o slug ("hardware", "rede"...); só aceita categorias ativas.
+    categoria        = serializers.SlugRelatedField(
+        slug_field="slug", queryset=Categoria.objects.filter(ativa=True)
+    )
+    categoria_nome   = serializers.CharField(source="categoria.nome", read_only=True)
 
     class Meta:
         model  = Chamado
         fields = [
-            "id", "titulo", "descricao", "categoria", "prioridade",
+            "id", "titulo", "descricao", "categoria", "categoria_nome", "prioridade",
             "status", "usuario", "usuario_username", "data_criacao",
         ]
-        read_only_fields = ["id", "usuario", "usuario_username", "data_criacao"]
+        read_only_fields = ["id", "categoria_nome", "usuario", "usuario_username", "data_criacao"]
 
     def get_usuario_username(self, obj):
         return obj.usuario.username

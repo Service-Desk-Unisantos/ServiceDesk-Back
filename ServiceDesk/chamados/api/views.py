@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.db.models import Count
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -8,12 +9,20 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
-from chamados.models import Chamado, Comentario, HistoricoChamado, Notificacao, registrar_edicoes
+from chamados.models import (
+    Categoria,
+    Chamado,
+    Comentario,
+    HistoricoChamado,
+    Notificacao,
+    registrar_edicoes,
+)
 from chamados.views import enviar_notificacao_status_chamado
 
 from .permissions import IsChamadoOwnerOrStaff, IsStaff
 from .serializers import (
     CadastroSerializer,
+    CategoriaSerializer,
     ChamadoSerializer,
     ComentarioSerializer,
     HistoricoChamadoSerializer,
@@ -65,6 +74,40 @@ class CadastroView(APIView):
 __all__ = ["TokenRefreshView", "TokenBlacklistView"]
 
 
+# ── Categorias ────────────────────────────────────────────────────────────────
+
+class CategoriaViewSet(viewsets.ModelViewSet):
+    serializer_class   = CategoriaSerializer
+    pagination_class   = None
+    http_method_names  = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        queryset = Categoria.objects.annotate(total_chamados=Count("chamados"))
+        # Formulário de chamado vê só as ativas; a tela de admin pede ?todas=1.
+        user = self.request.user
+        ver_todas = self.request.query_params.get("todas") == "1"
+        if ver_todas and (user.is_staff or user.is_superuser):
+            return queryset
+        if self.action in ("list", "retrieve"):
+            return queryset.filter(ativa=True)
+        return queryset
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsStaff()]
+
+    def destroy(self, request, *args, **kwargs):
+        categoria = self.get_object()
+        if categoria.chamados.exists():
+            return Response(
+                {"detail": "Esta categoria possui chamados vinculados. Desative-a em vez de excluir."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        categoria.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 # ── Chamados ──────────────────────────────────────────────────────────────────
 
 class ChamadoViewSet(viewsets.ModelViewSet):
@@ -75,8 +118,8 @@ class ChamadoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_staff or user.is_superuser:
-            return Chamado.objects.select_related("usuario").all()
-        return Chamado.objects.select_related("usuario").filter(usuario=user)
+            return Chamado.objects.select_related("usuario", "categoria").all()
+        return Chamado.objects.select_related("usuario", "categoria").filter(usuario=user)
 
     def get_permissions(self):
         if self.action in ("partial_update",):

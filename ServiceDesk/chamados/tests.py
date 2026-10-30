@@ -3,7 +3,9 @@ from django.test import TestCase
 from django.urls import reverse
 from unittest import mock
 
-from .models import Chamado, Comentario, Notificacao
+from rest_framework.test import APIClient
+
+from .models import Categoria, Chamado, Comentario, Notificacao
 
 
 class FluxoAutenticacaoTests(TestCase):
@@ -80,7 +82,7 @@ class ChamadosTests(TestCase):
         Chamado.objects.create(
             titulo="Meu chamado recente",
             descricao="Descricao recente",
-            categoria="software",
+            categoria_id="software",
             prioridade="baixa",
             usuario=self.usuario,
         )
@@ -98,14 +100,14 @@ class ChamadosTests(TestCase):
         Chamado.objects.create(
             titulo="Chamado do cliente",
             descricao="Descricao A",
-            categoria="software",
+            categoria_id="software",
             prioridade="baixa",
             usuario=self.usuario,
         )
         Chamado.objects.create(
             titulo="Chamado de outro usuario",
             descricao="Descricao B",
-            categoria="hardware",
+            categoria_id="hardware",
             prioridade="media",
             usuario=self.outro_usuario,
         )
@@ -122,7 +124,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Portal indisponivel",
             descricao="Nao consigo acessar o portal.",
-            categoria="software",
+            categoria_id="software",
             prioridade="media",
             usuario=self.usuario,
         )
@@ -144,7 +146,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Chamado restrito",
             descricao="Descricao privada.",
-            categoria="rede",
+            categoria_id="rede",
             prioridade="baixa",
             usuario=self.outro_usuario,
         )
@@ -159,7 +161,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Acesso bloqueado",
             descricao="Nao consigo entrar no sistema.",
-            categoria="acesso",
+            categoria_id="acesso",
             prioridade="alta",
             usuario=self.usuario,
         )
@@ -191,7 +193,7 @@ class ChamadosTests(TestCase):
         Chamado.objects.create(
             titulo="Chamado A",
             descricao="Descricao A",
-            categoria="rede",
+            categoria_id="rede",
             prioridade="alta",
             status="aberto",
             usuario=self.usuario,
@@ -199,7 +201,7 @@ class ChamadosTests(TestCase):
         Chamado.objects.create(
             titulo="Chamado B",
             descricao="Descricao B",
-            categoria="acesso",
+            categoria_id="acesso",
             prioridade="media",
             status="andamento",
             usuario=self.outro_usuario,
@@ -218,7 +220,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Chamado detalhe",
             descricao="Descricao para pagina dedicada.",
-            categoria="software",
+            categoria_id="software",
             prioridade="media",
             status="aberto",
             usuario=self.usuario,
@@ -236,7 +238,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Erro no sistema",
             descricao="Falha ao abrir tela.",
-            categoria="software",
+            categoria_id="software",
             prioridade="media",
             status="aberto",
             usuario=self.usuario,
@@ -258,7 +260,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Restrito admin",
             descricao="Somente equipe de infra.",
-            categoria="rede",
+            categoria_id="rede",
             prioridade="baixa",
             status="aberto",
             usuario=self.usuario,
@@ -278,7 +280,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Erro no e-mail",
             descricao="Caixa postal indisponivel.",
-            categoria="acesso",
+            categoria_id="acesso",
             prioridade="baixa",
             status="aberto",
             usuario=self.usuario,
@@ -319,7 +321,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Sem notificacao",
             descricao="Teste de falha do socket.",
-            categoria="software",
+            categoria_id="software",
             prioridade="media",
             status="aberto",
             usuario=self.usuario,
@@ -349,7 +351,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Sem internet",
             descricao="Rede indisponivel.",
-            categoria="rede",
+            categoria_id="rede",
             prioridade="media",
             status="aberto",
             usuario=self.usuario,
@@ -376,7 +378,7 @@ class ChamadosTests(TestCase):
         chamado = Chamado.objects.create(
             titulo="Troca de status",
             descricao="Descricao",
-            categoria="software",
+            categoria_id="software",
             prioridade="media",
             status="andamento",
             usuario=self.usuario,
@@ -414,7 +416,7 @@ class ChamadosTests(TestCase):
 
         self.assertRedirects(response, reverse("historico_chamados_cliente"))
         chamado = Chamado.objects.get(titulo="Sem acesso ao sistema")
-        self.assertEqual(chamado.categoria, "acesso")
+        self.assertEqual(chamado.categoria_id, "acesso")
         self.assertEqual(chamado.status, "aberto")
         self.assertEqual(chamado.usuario, self.usuario)
 
@@ -432,3 +434,115 @@ class ChamadosTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("lista_chamados"))
+
+
+class CategoriasApiTests(TestCase):
+    def setUp(self):
+        self.api = APIClient()
+        self.cliente = User.objects.create_user(username="cliente", password="SenhaForte123!")
+        self.staff = User.objects.create_user(
+            username="tecnico", password="SenhaForte123!", is_staff=True
+        )
+        self.url = "/api/v1/categorias/"
+
+    def test_categorias_iniciais_sao_criadas_pela_migracao(self):
+        slugs = set(Categoria.objects.values_list("slug", flat=True))
+        self.assertEqual(slugs, {"hardware", "software", "rede", "acesso", "outros"})
+
+    def test_cliente_lista_somente_categorias_ativas(self):
+        Categoria.objects.filter(slug="acesso").update(ativa=False)
+        self.api.force_authenticate(self.cliente)
+
+        # Mesmo pedindo ?todas=1, cliente nao ve categorias inativas.
+        response = self.api.get(self.url, {"todas": "1"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("acesso", [c["slug"] for c in response.json()])
+
+    def test_staff_ve_inativas_com_parametro_todas(self):
+        Categoria.objects.filter(slug="acesso").update(ativa=False)
+        self.api.force_authenticate(self.staff)
+
+        response = self.api.get(self.url, {"todas": "1"})
+
+        self.assertIn("acesso", [c["slug"] for c in response.json()])
+
+    def test_cliente_nao_pode_criar_alterar_ou_excluir_categoria(self):
+        self.api.force_authenticate(self.cliente)
+        categoria = Categoria.objects.get(slug="rede")
+
+        self.assertEqual(self.api.post(self.url, {"nome": "Impressora"}).status_code, 403)
+        self.assertEqual(
+            self.api.patch(f"{self.url}{categoria.id}/", {"ativa": False}).status_code, 403
+        )
+        self.assertEqual(self.api.delete(f"{self.url}{categoria.id}/").status_code, 403)
+
+    def test_staff_cria_categoria_e_ela_fica_disponivel_no_chamado(self):
+        self.api.force_authenticate(self.staff)
+
+        response = self.api.post(self.url, {"nome": "Impressora"})
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["slug"], "impressora")
+
+        self.api.force_authenticate(self.cliente)
+        response_chamado = self.api.post(
+            "/api/v1/chamados/",
+            {"titulo": "Sem toner", "descricao": "Acabou.", "categoria": "impressora", "prioridade": "baixa"},
+        )
+        self.assertEqual(response_chamado.status_code, 201, response_chamado.content)
+        self.assertEqual(response_chamado.json()["categoria_nome"], "Impressora")
+
+    def test_nome_duplicado_e_rejeitado(self):
+        self.api.force_authenticate(self.staff)
+
+        response = self.api.post(self.url, {"nome": "  REDE "})
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_renomear_mantem_slug_e_chamados_vinculados(self):
+        categoria = Categoria.objects.get(slug="rede")
+        chamado = Chamado.objects.create(
+            titulo="Wi-Fi caiu", descricao="Sem sinal.", categoria=categoria,
+            usuario=self.cliente, prioridade="alta",
+        )
+        self.api.force_authenticate(self.staff)
+
+        response = self.api.patch(f"{self.url}{categoria.id}/", {"nome": "Redes"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["slug"], "rede")
+        chamado.refresh_from_db()
+        self.assertEqual(chamado.categoria.nome, "Redes")
+
+    def test_categoria_inativa_nao_aceita_novos_chamados(self):
+        Categoria.objects.filter(slug="hardware").update(ativa=False)
+        self.api.force_authenticate(self.cliente)
+
+        response = self.api.post(
+            "/api/v1/chamados/",
+            {"titulo": "PC", "descricao": "Nao liga.", "categoria": "hardware", "prioridade": "alta"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_excluir_categoria_em_uso_retorna_conflito(self):
+        categoria = Categoria.objects.get(slug="software")
+        Chamado.objects.create(
+            titulo="Erro", descricao="Falha.", categoria=categoria,
+            usuario=self.cliente, prioridade="media",
+        )
+        self.api.force_authenticate(self.staff)
+
+        response = self.api.delete(f"{self.url}{categoria.id}/")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(Categoria.objects.filter(pk=categoria.pk).exists())
+
+    def test_excluir_categoria_sem_chamados(self):
+        categoria = Categoria.objects.create(nome="Temporaria")
+        self.api.force_authenticate(self.staff)
+
+        response = self.api.delete(f"{self.url}{categoria.id}/")
+
+        self.assertEqual(response.status_code, 204)

@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import Chamado
+from .models import Categoria, Chamado
 
 
 class ChamadoForm(forms.ModelForm):
@@ -20,6 +20,11 @@ class ChamadoForm(forms.ModelForm):
             "categoria": forms.Select(),
             "prioridade": forms.Select(),
         }
+
+    def __init__(self, *args, **kwargs):
+        # Somente categorias ativas, cadastradas pelos administradores, aparecem na abertura.
+        super().__init__(*args, **kwargs)
+        self.fields["categoria"].queryset = Categoria.objects.filter(ativa=True)
 
 
 class CadastroUsuarioForm(UserCreationForm):

@@ -2,6 +2,27 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.text import slugify
+
+
+class Categoria(models.Model):
+    # Categorias cadastradas pelos administradores e oferecidas na abertura de chamado (RF03).
+    nome = models.CharField(max_length=50, unique=True)
+    # Identificador fixo usado pelos chamados e pela API; nao muda ao renomear a categoria.
+    slug = models.SlugField(max_length=50, unique=True, editable=False)
+    # Categoria inativa some do formulario, mas continua nos chamados antigos.
+    ativa = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nome"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.nome)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.nome
 
 
 class Chamado(models.Model):
@@ -19,19 +40,15 @@ class Chamado(models.Model):
         ("alta", "Alta"),
     ]
 
-    # Categoria da solicitacao, exigida no requisito de registro (RF03).
-    CATEGORIA_CHOICES = [
-        ("hardware", "Hardware"),
-        ("software", "Software"),
-        ("rede", "Rede"),
-        ("acesso", "Acesso"),
-        ("outros", "Outros"),
-    ]
-
     titulo = models.CharField(max_length=100)
     descricao = models.TextField()
-    categoria = models.CharField(
-        max_length=20, choices=CATEGORIA_CHOICES, default="outros"
+    # Categoria da solicitacao, exigida no requisito de registro (RF03).
+    # PROTECT impede excluir categoria em uso; o caminho e desativa-la.
+    categoria = models.ForeignKey(
+        Categoria,
+        to_field="slug",
+        on_delete=models.PROTECT,
+        related_name="chamados",
     )
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="aberto")

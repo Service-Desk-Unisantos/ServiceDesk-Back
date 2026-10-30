@@ -170,11 +170,11 @@ def lista_chamados(request):
     # - cliente ve um resumo dos proprios chamados na home
     if request.user.is_staff or request.user.is_superuser:
         # Lista geral de chamados para acompanhamento inicial do time de infra.
-        chamados = Chamado.objects.all()
+        chamados = Chamado.objects.select_related("categoria")
         total_chamados_cliente = 0
     else:
         # Home do cliente mostra apenas os chamados mais recentes dele.
-        chamados = Chamado.objects.filter(usuario=request.user)[:5]
+        chamados = Chamado.objects.select_related("categoria").filter(usuario=request.user)[:5]
         total_chamados_cliente = Chamado.objects.filter(usuario=request.user).count()
 
     # Envia a lista para o template do painel.
@@ -198,7 +198,7 @@ def detalhe_chamado_admin(request, chamado_id):
 
     # Busca o chamado com comentarios e usuario para exibir historico completo na tela dedicada.
     chamado = get_object_or_404(
-        Chamado.objects.select_related("usuario").prefetch_related("comentarios__usuario"),
+        Chamado.objects.select_related("usuario", "categoria").prefetch_related("comentarios__usuario"),
         id=chamado_id,
     )
     # Formulario inicial para atualizar status/prioridade e responder o chamado.
@@ -264,7 +264,7 @@ def detalhe_chamado_cliente(request, chamado_id):
         return redirect("detalhe_chamado_admin", chamado_id=chamado_id)
 
     chamado = get_object_or_404(
-        Chamado.objects.select_related("usuario").prefetch_related("comentarios__usuario"),
+        Chamado.objects.select_related("usuario", "categoria").prefetch_related("comentarios__usuario"),
         id=chamado_id,
         usuario=request.user,
     )
@@ -314,7 +314,7 @@ def historico_chamados_cliente(request):
         return redirect("lista_chamados")
 
     # Filtro de seguranca: retorna apenas os chamados do usuario autenticado.
-    chamados = Chamado.objects.filter(usuario=request.user)
+    chamados = Chamado.objects.select_related("categoria").filter(usuario=request.user)
     # Renderiza a nova pagina de historico individual.
     return render(
         request,
