@@ -12,7 +12,7 @@ Backend do sistema ServiceDesk — servidor web, regras de negócio, banco de da
 | API REST | [Django REST Framework](https://www.django-rest-framework.org/) + [drf-nested-routers](https://github.com/alanjds/drf-nested-routers) |
 | Autenticação JWT | [SimpleJWT](https://django-rest-framework-simplejwt.readthedocs.io/) |
 | Login social | [django-allauth](https://docs.allauth.org/) (Google OAuth 2.0) |
-| Banco de dados | SQLite 3 (desenvolvimento) |
+| Banco de dados | PostgreSQL hospedado no [Supabase](https://supabase.com/) |
 | Notificações em tempo real | Servidor TCP socket customizado (porta 8765) + polling HTTP a cada 5s como fallback |
 | CORS | [django-cors-headers](https://github.com/adamchainz/django-cors-headers) |
 | Monitoramento de processo | [psutil](https://psutil.readthedocs.io/) |
@@ -126,6 +126,13 @@ Arquivo `.env` na raiz do projeto:
 DJANGO_SECRET_KEY=sua-chave-secreta
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Banco PostgreSQL (Supabase): Connect > Session pooler no painel do projeto
+DB_HOST=aws-1-us-east-1.pooler.supabase.com
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=postgres.<codigo-do-projeto>
+DB_PASSWORD=senha-do-banco
 
 # Google OAuth 2.0 (opcional — o botão "Entrar com Google" só aparece quando configurado)
 GOOGLE_OAUTH_CLIENT_ID=
