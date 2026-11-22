@@ -8,3 +8,4 @@ djangorestframework>=3.15,<4.0
 djangorestframework-simplejwt>=5.3,<6.0
 django-cors-headers>=4.3,<5.0
 drf-nested-routers>=0.93,<1.0
+psycopg[binary]>=3.1,<4.0

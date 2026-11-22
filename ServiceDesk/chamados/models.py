@@ -156,7 +156,7 @@ def registrar_edicoes(chamado, autor, antes):
 
 @receiver(post_save, sender=Chamado)
 def _historico_criacao(sender, instance, created, **kwargs):
-    if created:
+    if created and not kwargs.get("raw"):
         HistoricoChamado.objects.create(
             chamado=instance,
             autor=instance.usuario,
@@ -168,7 +168,7 @@ def _historico_criacao(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Comentario)
 def _historico_comentario(sender, instance, created, **kwargs):
-    if created:
+    if created and not kwargs.get("raw"):
         HistoricoChamado.objects.create(
             chamado=instance.chamado,
             autor=instance.usuario,
