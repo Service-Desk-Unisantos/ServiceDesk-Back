@@ -31,6 +31,7 @@ class Chamado(models.Model):
         ("aberto", "Aberto"),
         ("andamento", "Em andamento"),
         ("concluido", "Concluido"),
+        ("cancelado", "Cancelado"),
     ]
 
     # Prioridade definida no momento da abertura do chamado.
@@ -54,6 +55,9 @@ class Chamado(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="aberto")
     prioridade = models.CharField(max_length=20, choices=PRIORIDADE_CHOICES)
     data_criacao = models.DateTimeField(auto_now_add=True)
+    # Preenchidos apenas quando um admin cancela o chamado.
+    motivo_cancelamento = models.CharField(max_length=255, blank=True, default="")
+    data_cancelamento = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         # Exibe os chamados mais recentes primeiro no painel.

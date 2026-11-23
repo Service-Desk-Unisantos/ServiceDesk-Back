@@ -83,7 +83,11 @@ class LoginUsuarioForm(AuthenticationForm):
 
 class AtualizacaoChamadoAdminForm(forms.Form):
     # Campos que a equipe de infra pode atualizar durante o atendimento.
-    status = forms.ChoiceField(choices=Chamado.STATUS_CHOICES, label="Status")
+    # Cancelamento so ocorre pela API (action cancelar), que registra motivo e data.
+    status = forms.ChoiceField(
+        choices=[c for c in Chamado.STATUS_CHOICES if c[0] != "cancelado"],
+        label="Status",
+    )
     prioridade = forms.ChoiceField(
         choices=Chamado.PRIORIDADE_CHOICES,
         label="Prioridade",

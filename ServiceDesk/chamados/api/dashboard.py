@@ -69,8 +69,11 @@ class DashboardMetricsView(APIView):
         base = Chamado.objects.annotate(data_conclusao=Subquery(conclusao))
         concluidos = base.filter(status="concluido", data_conclusao__isnull=False)
 
-        criados = base.filter(data_criacao__gte=inicio, data_criacao__lt=fim)
-        criados_ant = base.filter(data_criacao__gte=ini_ant, data_criacao__lt=fim_ant)
+        # Cancelados aparecem na tabela e por status, mas nao contam como chamados abertos.
+        criados_todos = base.filter(data_criacao__gte=inicio, data_criacao__lt=fim)
+        criados = criados_todos.exclude(status="cancelado")
+        criados_ant = base.filter(data_criacao__gte=ini_ant, data_criacao__lt=fim_ant).exclude(status="cancelado")
+        cancelados = base.filter(status="cancelado", data_cancelamento__gte=inicio, data_cancelamento__lt=fim)
         resolvidos = concluidos.filter(data_conclusao__gte=inicio, data_conclusao__lt=fim)
         resolvidos_ant = concluidos.filter(data_conclusao__gte=ini_ant, data_conclusao__lt=fim_ant)
 
@@ -107,7 +110,7 @@ class DashboardMetricsView(APIView):
                 dia += timedelta(days=1)
 
         por_status = {s: 0 for s, _ in Chamado.STATUS_CHOICES}
-        for linha in criados.values("status").annotate(n=Count("id")):
+        for linha in criados_todos.values("status").annotate(n=Count("id")):
             por_status[linha["status"]] = linha["n"]
 
         por_categoria = list(
@@ -127,7 +130,7 @@ class DashboardMetricsView(APIView):
                 "status": c.status,
                 "data_criacao": c.data_criacao,
             }
-            for c in criados.select_related("usuario", "categoria").order_by("-data_criacao")[:LIMITE_RECENTES]
+            for c in criados_todos.select_related("usuario", "categoria").order_by("-data_criacao")[:LIMITE_RECENTES]
         ]
 
         return Response({
@@ -142,6 +145,7 @@ class DashboardMetricsView(APIView):
                 "resolvidos": n_res,
                 "resolvidos_anterior": n_res_ant,
                 "resolvidos_variacao": _variacao(n_res, n_res_ant) if comparar else None,
+                "cancelados": cancelados.count(),
             },
             "por_status": por_status,
             "evolucao": evolucao,
@@ -149,5 +153,5 @@ class DashboardMetricsView(APIView):
             "por_categoria": por_categoria,
             "por_solicitante": por_solicitante,
             "recentes": recentes,
-            "total_periodo": n_criados,
+            "total_periodo": criados_todos.count(),
         })
