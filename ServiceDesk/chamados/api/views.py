@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
+from django.utils import timezone
 from django.db.models import Count
 
 from rest_framework import status, viewsets
@@ -22,6 +23,7 @@ from chamados.models import (
     Comentario,
     HistoricoChamado,
     Notificacao,
+    _resumo,
     registrar_edicoes,
 )
 from chamados.notificacoes import enviar_notificacao_status_chamado
@@ -152,7 +154,7 @@ class ChamadoViewSet(viewsets.ModelViewSet):
         return Chamado.objects.select_related("usuario", "categoria").filter(usuario=user)
 
     def get_permissions(self):
-        if self.action in ("partial_update",):
+        if self.action in ("partial_update", "cancelar"):
             return [IsStaff()]
         return [IsAuthenticated()]
 
@@ -167,7 +169,17 @@ class ChamadoViewSet(viewsets.ModelViewSet):
                 usuario = User.objects.get(pk=solicitante, is_active=True)
             except (User.DoesNotExist, ValueError, TypeError):
                 raise ValidationError({"solicitante": "Usuário inválido."})
-        serializer.save(usuario=usuario)
+        # Todo chamado nasce "aberto", ignorando o status enviado pelo cliente.
+        chamado = serializer.save(usuario=usuario, status="aberto")
+        if usuario != self.request.user:
+            # Aberto pela equipe: o historico aponta o admin como autor e o solicitante e avisado.
+            HistoricoChamado.objects.filter(
+                chamado=chamado, acao=HistoricoChamado.ACAO_CRIOU
+            ).update(autor=self.request.user)
+            enviar_notificacao_status_chamado(
+                chamado,
+                mensagem=f"O chamado #{chamado.id} foi aberto para você pela equipe ({self.request.user.username}).",
+            )
 
     def partial_update(self, request, *args, **kwargs):
         chamado = self.get_object()
@@ -183,6 +195,32 @@ class ChamadoViewSet(viewsets.ModelViewSet):
             enviar_notificacao_status_chamado(chamado_atualizado)
 
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def cancelar(self, request, pk=None):
+        chamado = self.get_object()
+        if chamado.status in ("concluido", "cancelado"):
+            return Response(
+                {"detail": f"Chamado {chamado.get_status_display().lower()} não pode ser cancelado."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        motivo = _resumo(str(request.data.get("motivo") or "").strip())
+        antes = {"status": chamado.status, "prioridade": chamado.prioridade}
+        chamado.status = "cancelado"
+        chamado.motivo_cancelamento = motivo
+        chamado.data_cancelamento = timezone.now()
+        chamado.save(update_fields=["status", "motivo_cancelamento", "data_cancelamento"])
+        registrar_edicoes(chamado, request.user, antes)
+        if motivo:
+            HistoricoChamado.objects.create(
+                chamado=chamado,
+                autor=request.user,
+                acao=HistoricoChamado.ACAO_EDITOU,
+                atributo="Motivo do cancelamento",
+                valor_novo=motivo,
+            )
+        enviar_notificacao_status_chamado(chamado)
+        return Response(self.get_serializer(chamado).data)
 
 
 # ── Comentários ───────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ from unittest import mock
 from rest_framework.test import APIClient
 
 from .models import Categoria, Chamado, Comentario, Notificacao
+from .notificacoes import enviar_notificacao_status_chamado
 
 
 class FluxoAutenticacaoTests(TestCase):
@@ -271,6 +272,43 @@ class ChamadosApiTests(TestCase):
         self.assertFalse(
             Notificacao.objects.filter(
                 chamado=chamado, usuario=self.usuario, tipo="status_chamado"
+            ).exists()
+        )
+
+    @mock.patch("chamados.notificacoes.socket.create_connection")
+    def test_notificacao_aceita_mensagem_personalizada(self, mock_create_connection):
+        mock_create_connection.return_value.__enter__.return_value = mock.MagicMock()
+        chamado = self._chamado()
+
+        enviar_notificacao_status_chamado(chamado, mensagem="Mensagem sob medida")
+
+        self.assertTrue(
+            Notificacao.objects.filter(chamado=chamado, mensagem="Mensagem sob medida").exists()
+        )
+
+    @mock.patch("chamados.notificacoes.socket.create_connection")
+    def test_staff_abre_chamado_para_outro_usuario_e_notifica(self, mock_create_connection):
+        mock_create_connection.return_value.__enter__.return_value = mock.MagicMock()
+        self.api.force_authenticate(self.staff)
+
+        response = self.api.post(
+            "/api/v1/chamados/",
+            {
+                "titulo": "Aberto pela equipe",
+                "descricao": "Solicitado por telefone.",
+                "categoria": "rede",
+                "prioridade": "media",
+                "solicitante": self.outro_usuario.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        chamado = Chamado.objects.get(titulo="Aberto pela equipe")
+        self.assertEqual(chamado.usuario, self.outro_usuario)
+        self.assertTrue(
+            Notificacao.objects.filter(
+                chamado=chamado, usuario=self.outro_usuario, mensagem__contains="pela equipe"
             ).exists()
         )
 

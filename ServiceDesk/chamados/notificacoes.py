@@ -10,9 +10,9 @@ from .models import Notificacao
 logger = logging.getLogger(__name__)
 
 
-def enviar_notificacao_status_chamado(chamado):
+def enviar_notificacao_status_chamado(chamado, mensagem=None):
     # Monta mensagem simples no formato solicitado para notificacao em tempo real.
-    mensagem = (
+    mensagem = mensagem or (
         f"Seu chamado #{chamado.id} foi atualizado para "
         f"{chamado.get_status_display().upper()}"
     )
