@@ -24,7 +24,7 @@ from chamados.models import (
     Notificacao,
     registrar_edicoes,
 )
-from chamados.views import enviar_notificacao_status_chamado
+from chamados.notificacoes import enviar_notificacao_status_chamado
 
 from .permissions import IsChamadoOwnerOrStaff, IsStaff
 from .serializers import (
@@ -79,6 +79,16 @@ class CadastroView(APIView):
 
 # TokenRefreshView e TokenBlacklistView vêm direto do simplejwt
 __all__ = ["TokenRefreshView", "TokenBlacklistView"]
+
+
+def google_login_guard(request):
+    # Inicia o login Google; sem credenciais configuradas, volta para o login do frontend.
+    if not settings.GOOGLE_OAUTH_ENABLED:
+        return redirect(f"{settings.FRONTEND_LOGIN_URL}?google_error=1")
+
+    from allauth.socialaccount.providers.google.views import oauth2_login
+
+    return oauth2_login(request)
 
 
 @login_required

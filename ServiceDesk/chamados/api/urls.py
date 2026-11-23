@@ -3,7 +3,7 @@ from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
 from .dashboard import DashboardMetricsView
-from .usuarios import UsuarioListView
+from .usuarios import UsuarioCadastradoListView, UsuarioListView
 from .views import (
     CadastroView,
     CategoriaViewSet,
@@ -31,6 +31,7 @@ urlpatterns = [
     path("auth/cadastro/", CadastroView.as_view(),      name="api_cadastro"),
     path("auth/google/success/", google_auth_success, name="api_google_success"),
     path("usuarios/", UsuarioListView.as_view(), name="api_usuarios"),
+    path("usuarios/cadastrados/", UsuarioCadastradoListView.as_view(), name="api_usuarios_cadastrados"),
     path("dashboard/metrics/", DashboardMetricsView.as_view(), name="api_dashboard_metrics"),
     *router.urls,
     *chamados_router.urls,
