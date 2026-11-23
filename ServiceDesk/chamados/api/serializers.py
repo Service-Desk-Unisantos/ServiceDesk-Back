@@ -88,8 +88,21 @@ class ChamadoSerializer(serializers.ModelSerializer):
         fields = [
             "id", "titulo", "descricao", "categoria", "categoria_nome", "prioridade",
             "status", "usuario", "usuario_username", "data_criacao",
+            "motivo_cancelamento", "data_cancelamento",
         ]
-        read_only_fields = ["id", "categoria_nome", "usuario", "usuario_username", "data_criacao"]
+        read_only_fields = [
+            "id", "categoria_nome", "usuario", "usuario_username", "data_criacao",
+            "motivo_cancelamento", "data_cancelamento",
+        ]
+
+    def validate_status(self, value):
+        # O cancelamento so ocorre pela action dedicada (/cancelar/), que registra motivo e data.
+        atual = self.instance.status if self.instance else None
+        if value == "cancelado" and atual != "cancelado":
+            raise serializers.ValidationError("Use a ação de cancelar chamado.")
+        if atual == "cancelado" and value != "cancelado":
+            raise serializers.ValidationError("Chamado cancelado não pode ser reaberto.")
+        return value
 
     def get_usuario_username(self, obj):
         return obj.usuario.username

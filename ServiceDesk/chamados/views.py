@@ -37,9 +37,9 @@ def _destino_pos_login(request):
     return "lista_chamados"
 
 
-def enviar_notificacao_status_chamado(chamado):
+def enviar_notificacao_status_chamado(chamado, mensagem=None):
     # Monta mensagem simples no formato solicitado para notificacao em tempo real.
-    mensagem = (
+    mensagem = mensagem or (
         f"Seu chamado #{chamado.id} foi atualizado para "
         f"{chamado.get_status_display().upper()}"
     )
@@ -234,6 +234,9 @@ def atualizar_chamado_admin(request, chamado_id):
     # Recupera o chamado selecionado para atualizar os dados de atendimento.
     chamado = get_object_or_404(Chamado, id=chamado_id)
     if request.method != "POST":
+        return redirect("detalhe_chamado_admin", chamado_id=chamado.id)
+    if chamado.status == "cancelado":
+        messages.error(request, "Chamado cancelado nao pode ser atualizado.")
         return redirect("detalhe_chamado_admin", chamado_id=chamado.id)
 
     # Valida os dados enviados no formulario de atendimento da tela de detalhe.
