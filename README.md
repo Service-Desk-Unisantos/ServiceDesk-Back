@@ -2,6 +2,8 @@
 
 Backend do sistema ServiceDesk — servidor web, regras de negócio, banco de dados e API REST.
 
+> A interface (páginas HTML, CSS e JS) fica no repositório **Frontend**. Este repositório expõe apenas a API (`/api/v1/`), o Django Admin (`/admin/`) e o início do login Google (`/accounts/google/login/`).
+
 ---
 
 ## Tecnologias
@@ -29,11 +31,9 @@ ServiceDesk/
 │   ├── asgi.py
 │   └── wsgi.py
 ├── chamados/              # App principal
-│   ├── models.py          # Chamado, Comentario, Notificacao
-│   ├── views.py           # Views HTML (interface web)
-│   ├── forms.py
+│   ├── models.py          # Chamado, Comentario, Notificacao, Categoria, HistoricoChamado
+│   ├── notificacoes.py    # Envio de notificação ao servidor TCP
 │   ├── backends.py        # Autenticação por username ou e-mail
-│   ├── urls.py
 │   └── api/               # Endpoints REST
 │       ├── views.py
 │       ├── serializers.py

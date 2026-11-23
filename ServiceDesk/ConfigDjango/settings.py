@@ -177,6 +177,10 @@ FRONTEND_GOOGLE_CALLBACK_URL = os.getenv(
     "FRONTEND_GOOGLE_CALLBACK_URL",
     "http://localhost:5500/pages/auth/google-callback/index.html",
 ).strip()
+FRONTEND_LOGIN_URL = os.getenv(
+    "FRONTEND_LOGIN_URL",
+    "http://localhost:5500/pages/login/index.html",
+).strip()
 
 # Configuração do provider do Google:
 # - escopo de perfil e e-mail
@@ -205,14 +209,14 @@ if GOOGLE_OAUTH_ENABLED:
         "key": "",
     }
 
-# URL de autenticacao usada pelo decorator @login_required (RF02).
-LOGIN_URL = "/login/"
+# URL de autenticacao usada pelo decorator @login_required: a tela de login fica no frontend.
+LOGIN_URL = FRONTEND_LOGIN_URL
 
 # Apos autenticar via Google, o backend entrega JWTs para o frontend estatico.
 LOGIN_REDIRECT_URL = "/api/v1/auth/google/success/"
 
 # Apos logout, retorna para a tela de login.
-LOGOUT_REDIRECT_URL = "/login/"
+LOGOUT_REDIRECT_URL = FRONTEND_LOGIN_URL
 
 
 # Default primary key field type
