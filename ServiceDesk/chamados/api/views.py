@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
+from django.db.models import Count
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -14,14 +15,23 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
-from chamados.models import Chamado, Comentario, Notificacao
+from chamados.models import (
+    Categoria,
+    Chamado,
+    Comentario,
+    HistoricoChamado,
+    Notificacao,
+    registrar_edicoes,
+)
 from chamados.views import enviar_notificacao_status_chamado
 
 from .permissions import IsChamadoOwnerOrStaff, IsStaff
 from .serializers import (
     CadastroSerializer,
+    CategoriaSerializer,
     ChamadoSerializer,
     ComentarioSerializer,
+    HistoricoChamadoSerializer,
     NotificacaoSerializer,
     UsuarioSerializer,
 )
@@ -83,6 +93,40 @@ def google_auth_success(request):
     return redirect(f"{settings.FRONTEND_GOOGLE_CALLBACK_URL}#{fragmento}")
 
 
+# ── Categorias ────────────────────────────────────────────────────────────────
+
+class CategoriaViewSet(viewsets.ModelViewSet):
+    serializer_class   = CategoriaSerializer
+    pagination_class   = None
+    http_method_names  = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        queryset = Categoria.objects.annotate(total_chamados=Count("chamados"))
+        # Formulário de chamado vê só as ativas; a tela de admin pede ?todas=1.
+        user = self.request.user
+        ver_todas = self.request.query_params.get("todas") == "1"
+        if ver_todas and (user.is_staff or user.is_superuser):
+            return queryset
+        if self.action in ("list", "retrieve"):
+            return queryset.filter(ativa=True)
+        return queryset
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated()]
+        return [IsStaff()]
+
+    def destroy(self, request, *args, **kwargs):
+        categoria = self.get_object()
+        if categoria.chamados.exists():
+            return Response(
+                {"detail": "Esta categoria possui chamados vinculados. Desative-a em vez de excluir."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        categoria.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 # ── Chamados ──────────────────────────────────────────────────────────────────
 
 class ChamadoViewSet(viewsets.ModelViewSet):
@@ -93,8 +137,8 @@ class ChamadoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_staff or user.is_superuser:
-            return Chamado.objects.select_related("usuario").all()
-        return Chamado.objects.select_related("usuario").filter(usuario=user)
+            return Chamado.objects.select_related("usuario", "categoria").all()
+        return Chamado.objects.select_related("usuario", "categoria").filter(usuario=user)
 
     def get_permissions(self):
         if self.action in ("partial_update",):
@@ -107,10 +151,12 @@ class ChamadoViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         chamado = self.get_object()
         status_anterior = chamado.status
+        antes = {"status": chamado.status, "prioridade": chamado.prioridade}
 
         serializer = self.get_serializer(chamado, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         chamado_atualizado = serializer.save()
+        registrar_edicoes(chamado_atualizado, request.user, antes)
 
         if chamado_atualizado.status != status_anterior:
             enviar_notificacao_status_chamado(chamado_atualizado)
@@ -139,6 +185,23 @@ class ComentarioViewSet(viewsets.ModelViewSet):
         chamado    = Chamado.objects.get(pk=chamado_pk)
         self.check_object_permissions(self.request, chamado)
         serializer.save(chamado=chamado, usuario=self.request.user)
+
+
+# ── Histórico ─────────────────────────────────────────────────────────────────
+
+class HistoricoViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class   = HistoricoChamadoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Cliente so enxerga o historico dos proprios chamados.
+        user = self.request.user
+        chamados = Chamado.objects.all()
+        if not (user.is_staff or user.is_superuser):
+            chamados = chamados.filter(usuario=user)
+        return HistoricoChamado.objects.filter(
+            chamado_id=self.kwargs.get("chamado_pk"), chamado__in=chamados
+        ).select_related("autor")
 
 
 # ── Notificações ──────────────────────────────────────────────────────────────

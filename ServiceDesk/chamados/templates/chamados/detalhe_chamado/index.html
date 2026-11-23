@@ -91,7 +91,7 @@
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-4">
                         <p class="mb-2"><strong>Cliente:</strong> {{ chamado.usuario.username }}</p>
-                        <p class="mb-2"><strong>Categoria:</strong> {{ chamado.get_categoria_display }}</p>
+                        <p class="mb-2"><strong>Categoria:</strong> {{ chamado.categoria.nome }}</p>
                         <p class="mb-2"><strong>Prioridade:</strong> {{ chamado.get_prioridade_display }}</p>
                         <p class="mb-3"><strong>Abertura:</strong> {{ chamado.data_criacao|date:"d/m/Y H:i" }}</p>
 

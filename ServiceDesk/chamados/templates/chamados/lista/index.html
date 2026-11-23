@@ -304,7 +304,7 @@
                             {% for chamado in chamados %}
                                 <tr>
                                     <td class="ps-4 fw-bold text-dark">{{ chamado.titulo }}</td>
-                                    <td><span class="badge bg-secondary">{{ chamado.get_categoria_display }}</span></td>
+                                    <td><span class="badge bg-secondary">{{ chamado.categoria.nome }}</span></td>
                                     <td>
                                         {% if chamado.prioridade == 'alta' %}
                                             <span class="badge bg-danger text-white">Alta</span>
