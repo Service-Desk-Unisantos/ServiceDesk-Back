@@ -1,8 +1,15 @@
+import json
+from urllib.parse import urlencode
+
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
 from django.db.models import Count
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -74,6 +81,19 @@ class CadastroView(APIView):
 __all__ = ["TokenRefreshView", "TokenBlacklistView"]
 
 
+@login_required
+def google_auth_success(request):
+    dados = _tokens_para_usuario(request.user)
+    fragmento = urlencode(
+        {
+            "access": dados["access"],
+            "refresh": dados["refresh"],
+            "user": json.dumps(dados["user"], ensure_ascii=False),
+        }
+    )
+    return redirect(f"{settings.FRONTEND_GOOGLE_CALLBACK_URL}#{fragmento}")
+
+
 # ── Categorias ────────────────────────────────────────────────────────────────
 
 class CategoriaViewSet(viewsets.ModelViewSet):
@@ -127,7 +147,17 @@ class ChamadoViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
+        # Staff pode abrir o chamado em nome de outro usuario enviando "solicitante" (id).
+        usuario = self.request.user
+        solicitante = self.request.data.get("solicitante")
+        if solicitante not in (None, ""):
+            if not (usuario.is_staff or usuario.is_superuser):
+                raise PermissionDenied("Somente a equipe pode abrir chamados em nome de outro usuário.")
+            try:
+                usuario = User.objects.get(pk=solicitante, is_active=True)
+            except (User.DoesNotExist, ValueError, TypeError):
+                raise ValidationError({"solicitante": "Usuário inválido."})
+        serializer.save(usuario=usuario)
 
     def partial_update(self, request, *args, **kwargs):
         chamado = self.get_object()
