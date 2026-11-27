@@ -107,6 +107,11 @@ class FluxoAutenticacaoTests(TestCase):
             password="SenhaForte123!",
         )
         self.client.login(username="google_user", password="SenhaForte123!")
+        sessao = self.client.session
+        sessao["account_authentication_methods"] = [
+            {"method": "socialaccount", "provider": "google"}
+        ]
+        sessao.save()
 
         response = self.client.get("/api/v1/auth/google/success/")
         destino = response["Location"]
@@ -121,6 +126,95 @@ class FluxoAutenticacaoTests(TestCase):
         self.assertIn("access", fragmento)
         self.assertIn("refresh", fragmento)
         self.assertIn("user", fragmento)
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    @override_settings(FRONTEND_LOGIN_URL="http://localhost:5500/pages/login/index.html")
+    def test_sessao_que_nao_veio_do_google_nao_recebe_tokens(self):
+        User.objects.create_user(username="admin_local", password="SenhaForte123!")
+        self.client.login(username="admin_local", password="SenhaForte123!")
+
+        response = self.client.get("/api/v1/auth/google/success/")
+
+        self.assertEqual(
+            response["Location"],
+            "http://localhost:5500/pages/login/index.html?google_error=1",
+        )
+
+    def test_apagar_senha_invalida_tokens_antigos(self):
+        # Quem pre-cadastrou o e-mail de outra pessoa perde o acesso quando ela entra pelo Google.
+        user = User.objects.create_user(username="bruno", password="SenhaForte123!")
+        tokens = self.api.post(
+            "/api/v1/auth/login/",
+            {"username": "bruno", "password": "SenhaForte123!"},
+            format="json",
+        ).json()
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+
+        self.api.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        self.assertEqual(self.api.get("/api/v1/chamados/").status_code, 401)
+
+        self.api.credentials()
+        renovado = self.api.post(
+            "/api/v1/auth/refresh/", {"refresh": tokens["refresh"]}, format="json"
+        ).json()
+        self.api.credentials(HTTP_AUTHORIZATION=f"Bearer {renovado.get('access', 'x')}")
+        self.assertEqual(self.api.get("/api/v1/chamados/").status_code, 401)
+
+    def test_cadastro_recusa_email_repetido_com_outra_caixa(self):
+        User.objects.create_user(username="ana", email="ana@example.com")
+
+        response = self.api.post(
+            "/api/v1/auth/cadastro/",
+            {
+                "username": "ana2",
+                "email": "ANA@example.com",
+                "password1": "SenhaForte123!",
+                "password2": "SenhaForte123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+
+class AcessoComentariosTests(TestCase):
+    def setUp(self):
+        self.api = APIClient()
+        self.dono = User.objects.create_user(username="dono", password="SenhaForte123!")
+        self.intruso = User.objects.create_user(username="intruso", password="SenhaForte123!")
+        self.staff = User.objects.create_user(
+            username="suporte", password="SenhaForte123!", is_staff=True
+        )
+        categoria, _ = Categoria.objects.get_or_create(slug="rede", defaults={"nome": "Rede"})
+        chamado = Chamado.objects.create(
+            titulo="Sem internet", descricao="Rede.", categoria=categoria, usuario=self.dono
+        )
+        self.comentario = Comentario.objects.create(
+            chamado=chamado, usuario=self.dono, texto="Dado privado"
+        )
+        self.url = f"/api/v1/chamados/{chamado.id}/comentarios/"
+
+    def test_dono_e_equipe_veem_os_comentarios(self):
+        for usuario in (self.dono, self.staff):
+            self.api.force_authenticate(usuario)
+            self.assertEqual(self.api.get(self.url).json()["count"], 1)
+
+    def test_outro_cliente_nao_le_comentarios(self):
+        self.api.force_authenticate(self.intruso)
+
+        self.assertEqual(self.api.get(self.url).json()["count"], 0)
+        self.assertEqual(self.api.get(f"{self.url}{self.comentario.id}/").status_code, 404)
+        self.assertEqual(self.api.post(self.url, {"texto": "oi"}).status_code, 403)
+
+    def test_chamado_inexistente_ou_id_invalido_retorna_404(self):
+        self.api.force_authenticate(self.dono)
+
+        resposta = self.api.post("/api/v1/chamados/99999/comentarios/", {"texto": "oi"})
+        self.assertEqual(resposta.status_code, 404)
+        self.assertEqual(self.api.get("/api/v1/chamados/abc/comentarios/").status_code, 404)
+        self.assertEqual(self.api.get("/api/v1/chamados/abc/historico/").status_code, 404)
 
 
 class ChamadosApiTests(TestCase):
