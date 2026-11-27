@@ -2,10 +2,11 @@ import json
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate, get_user_model, logout
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.db.models import Count
 
 from rest_framework import status, viewsets
@@ -93,8 +94,17 @@ def google_login_guard(request):
     return oauth2_login(request)
 
 
+@never_cache
 @login_required
 def google_auth_success(request):
+    # So uma sessao aberta pelo Google pode virar JWT (sessao do admin, por exemplo, nao).
+    metodos = request.session.get("account_authentication_methods", [])
+    if not any(
+        m.get("method") == "socialaccount" and m.get("provider") == "google"
+        for m in metodos
+    ):
+        return redirect(f"{settings.FRONTEND_LOGIN_URL}?google_error=1")
+
     dados = _tokens_para_usuario(request.user)
     fragmento = urlencode(
         {
@@ -103,6 +113,8 @@ def google_auth_success(request):
             "user": json.dumps(dados["user"], ensure_ascii=False),
         }
     )
+    # A sessao serve apenas para esta troca: encerrada, a URL nao gera novos tokens.
+    logout(request)
     return redirect(f"{settings.FRONTEND_GOOGLE_CALLBACK_URL}#{fragmento}")
 
 
@@ -146,6 +158,8 @@ class ChamadoViewSet(viewsets.ModelViewSet):
     serializer_class   = ChamadoSerializer
     permission_classes = [IsAuthenticated]
     http_method_names  = ["get", "post", "patch", "head", "options"]
+    # IDs somente numericos, inclusive nas rotas aninhadas: texto na URL vira 404, nao erro 500.
+    lookup_value_regex = r"\d+"
 
     def get_queryset(self):
         user = self.request.user
@@ -231,8 +245,12 @@ class ComentarioViewSet(viewsets.ModelViewSet):
     http_method_names  = ["get", "post", "head", "options"]
 
     def get_queryset(self):
-        chamado_pk = self.kwargs.get("chamado_pk")
-        return Comentario.objects.filter(chamado_id=chamado_pk).select_related("usuario")
+        # Cliente so enxerga os comentarios dos proprios chamados.
+        user = self.request.user
+        comentarios = Comentario.objects.filter(chamado_id=self.kwargs.get("chamado_pk"))
+        if not (user.is_staff or user.is_superuser):
+            comentarios = comentarios.filter(chamado__usuario=user)
+        return comentarios.select_related("usuario")
 
     def get_permissions(self):
         if self.action == "create":
@@ -241,7 +259,7 @@ class ComentarioViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         chamado_pk = self.kwargs.get("chamado_pk")
-        chamado    = Chamado.objects.get(pk=chamado_pk)
+        chamado    = get_object_or_404(Chamado, pk=chamado_pk)
         self.check_object_permissions(self.request, chamado)
         serializer.save(chamado=chamado, usuario=self.request.user)
 

@@ -164,14 +164,9 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
-GOOGLE_OAUTH_CLIENT_ID = os.getenv(
-    "GOOGLE_OAUTH_CLIENT_ID",
-    "1053202065034-3h5p2gtlajn3o0k1i8ir66tbo8i7fs3k.apps.googleusercontent.com",
-).strip()
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv(
-    "GOOGLE_OAUTH_CLIENT_SECRET",
-    "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",
-).strip()
+# Credenciais vem somente do ambiente (.env): nunca colocar valores padrao no codigo.
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
 GOOGLE_OAUTH_ENABLED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
 FRONTEND_GOOGLE_CALLBACK_URL = os.getenv(
     "FRONTEND_GOOGLE_CALLBACK_URL",
@@ -184,13 +179,14 @@ FRONTEND_LOGIN_URL = os.getenv(
 
 # Configuração do provider do Google:
 # - escopo de perfil e e-mail
-# - e-mail como verificado
+# - PKCE para proteger o codigo de autorizacao
+# - e-mail so e considerado verificado quando o proprio Google confirma
 # - login/autocadastro sem tela intermediária
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
         "SCOPE": ["profile", "email"],
         "AUTH_PARAMS": {"access_type": "online"},
-        "VERIFIED_EMAIL": True,
+        "OAUTH_PKCE_ENABLED": True,
         "EMAIL_AUTHENTICATION": True,
     }
 }
@@ -241,6 +237,9 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
+    # Trocar ou apagar a senha invalida os tokens antigos. Necessario porque, ao vincular
+    # uma conta pelo e-mail do Google, o allauth apaga a senha criada sem verificacao.
+    "CHECK_REVOKE_TOKEN": True,
 }
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
